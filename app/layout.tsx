@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js 시작하기",
-  description: "create-next-app으로 생성됨",
+  title: "불타는 사자성어",
+  description: "떨어지는 사자성어를 입력해 순발력을 겨루는 타자 게임",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
