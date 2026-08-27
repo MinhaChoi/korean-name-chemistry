@@ -14,6 +14,10 @@ export const DIFFICULTY_DESCRIPTIONS: Record<Difficulty, string> = {
   hard: "정신줄 놓고 타자",
 };
 
+// 한 판의 길이. 모든 난이도가 같은 시간을 쓴다. 그래야 난이도가 올라갈수록
+// 같은 시간 안에 더 많이 지우게 되어 점수 차이로 실력이 드러난다.
+export const ROUND_DURATION_MS = 30_000;
+
 export type DifficultySettings = {
   initialFallMs: number;
   minFallMs: number;

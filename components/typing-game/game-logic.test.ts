@@ -10,7 +10,14 @@ function word(
   fallDurationMs = 1000
 ): FallingWord {
   idCounter += 1;
-  return { id: `w${idCounter}`, text, lane: 0, spawnedAt, fallDurationMs };
+  return {
+    id: `w${idCounter}`,
+    text,
+    meaning: `${text}의 뜻`,
+    lane: 0,
+    spawnedAt,
+    fallDurationMs,
+  };
 }
 
 describe("selectTarget", () => {

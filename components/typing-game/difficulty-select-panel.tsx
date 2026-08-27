@@ -4,12 +4,15 @@ import {
   DIFFICULTIES,
   DIFFICULTY_DESCRIPTIONS,
   DIFFICULTY_LABELS,
+  ROUND_DURATION_MS,
   type Difficulty,
 } from "@/components/typing-game/difficulty";
 
 type DifficultySelectPanelProps = {
   onSelect: (difficulty: Difficulty) => void;
 };
+
+const ROUND_SECONDS = Math.round(ROUND_DURATION_MS / 1000);
 
 const FLAME_COUNT: Record<Difficulty, number> = {
   easy: 1,
@@ -27,10 +30,10 @@ export function DifficultySelectPanel({
           얼마나 뜨겁게 타 볼까?
         </p>
         <p className="mt-1 text-xs text-orange-200/60">
-          난이도는 언제든 다시 고를 수 있다
+          {ROUND_SECONDS}초를 버티면 승리, 🥵 5개를 다 잃으면 패배
         </p>
         <p className="mt-0.5 text-xs text-orange-200/50">
-          🥵 5개를 모두 잃으면 게임 끝
+          난이도는 판마다 다시 고를 수 있다
         </p>
       </div>
       <div className="flex flex-col gap-2.5">
