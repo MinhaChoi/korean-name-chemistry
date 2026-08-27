@@ -7,13 +7,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { Flame } from "lucide-react";
 
 import { DifficultySelectPanel } from "@/components/typing-game/difficulty-select-panel";
 import {
   DIFFICULTY_SETTINGS,
   type Difficulty,
 } from "@/components/typing-game/difficulty";
+import { EmberParticles } from "@/components/typing-game/ember-particles";
 import { GameOverPanel } from "@/components/typing-game/game-over-panel";
 import { processInput } from "@/components/typing-game/game-logic";
 import {
@@ -27,13 +27,27 @@ const INITIAL_LIVES = 5;
 const LANE_COUNT = 5;
 const MAX_CONCURRENT_WORDS = 3;
 const FALL_DURATION_STEP_MS = 200;
+const SPAWN_INTERVAL_STEP_MS = 60;
 const SCORE_PER_WORD = 100;
+const LIFE_EMOJI = "🥵";
+const LOST_LIFE_EMOJI = "💀";
+
+function wordsClearedFor(score: number): number {
+  return Math.floor(score / SCORE_PER_WORD);
+}
 
 function fallDurationForScore(score: number, difficulty: Difficulty): number {
   const { initialFallMs, minFallMs } = DIFFICULTY_SETTINGS[difficulty];
-  const wordsCleared = Math.floor(score / SCORE_PER_WORD);
-  const reduced = initialFallMs - wordsCleared * FALL_DURATION_STEP_MS;
+  const reduced = initialFallMs - wordsClearedFor(score) * FALL_DURATION_STEP_MS;
   return Math.max(minFallMs, reduced);
+}
+
+function spawnIntervalForScore(score: number, difficulty: Difficulty): number {
+  const { initialSpawnIntervalMs, minSpawnIntervalMs } =
+    DIFFICULTY_SETTINGS[difficulty];
+  const reduced =
+    initialSpawnIntervalMs - wordsClearedFor(score) * SPAWN_INTERVAL_STEP_MS;
+  return Math.max(minSpawnIntervalMs, reduced);
 }
 
 function pickLane(usedLanes: Set<number>): number {
@@ -55,6 +69,9 @@ type GameState = {
   input: string;
   highScore: number;
   isNewHighScore: boolean;
+  // 낱말을 놓칠 때마다 1씩 증가한다. 이 값이 바뀌는 순간을 화면 플래시
+  // 애니메이션의 트리거(React key)로 쓴다.
+  missFlashKey: number;
 };
 
 type Action =
@@ -76,6 +93,7 @@ function createReadyState(highScore: number): GameState {
     input: "",
     highScore,
     isNewHighScore: false,
+    missFlashKey: 0,
   };
 }
 
@@ -126,6 +144,7 @@ function reducer(state: GameState, action: Action): GameState {
           input: "",
           highScore: isNewHighScore ? state.score : state.highScore,
           isNewHighScore,
+          missFlashKey: state.missFlashKey + 1,
         };
       }
 
@@ -135,6 +154,7 @@ function reducer(state: GameState, action: Action): GameState {
         lives,
         targetId: lostTarget ? null : state.targetId,
         input: lostTarget ? "" : state.input,
+        missFlashKey: state.missFlashKey + 1,
       };
     }
 
@@ -164,8 +184,9 @@ function reducer(state: GameState, action: Action): GameState {
     }
 
     case "restart": {
+      // 다시 시작할 때는 난이도 선택 화면으로 돌아간다.
       if (state.phase !== "gameover") return state;
-      return createPlayingState(state.highScore, state.difficulty);
+      return createReadyState(state.highScore);
     }
 
     default:
@@ -179,7 +200,7 @@ function renderWordText(word: FallingWord, isTarget: boolean, input: string) {
   const remaining = word.text.slice(input.length);
   return (
     <>
-      <span className="text-orange-600">{typed}</span>
+      <span className="text-amber-300">{typed}</span>
       <span>{remaining}</span>
     </>
   );
@@ -214,73 +235,114 @@ export function TypingGame() {
     }
   }, [state.phase, state.isNewHighScore, state.score]);
 
+  // 낱말 등장 간격은 setInterval로 한 번 고정하지 않고, 스폰할 때마다
+  // 그 시점의 점수를 기준으로 다음 간격을 다시 계산한다(재귀 setTimeout).
+  // 그래야 같은 난이도 안에서도 점수가 오를수록 계속 빨라진다.
   useEffect(() => {
     if (state.phase !== "playing") return;
 
-    const { spawnIntervalMs } = DIFFICULTY_SETTINGS[stateRef.current.difficulty];
+    let timeoutId: ReturnType<typeof setTimeout>;
 
-    const spawnOne = () => {
+    const spawnAndScheduleNext = () => {
       const current = stateRef.current;
-      if (current.words.length >= MAX_CONCURRENT_WORDS) return;
-      const usedWords = new Set(current.words.map((w) => w.text));
-      const usedLanes = new Set(current.words.map((w) => w.lane));
-      idCounterRef.current += 1;
-      dispatch({
-        type: "spawn",
-        word: {
-          id: `word-${idCounterRef.current}`,
-          text: pickRandomWord(usedWords),
-          lane: pickLane(usedLanes),
-          spawnedAt: Date.now(),
-          fallDurationMs: fallDurationForScore(
-            current.score,
-            current.difficulty
-          ),
-        },
-      });
+      if (current.phase !== "playing") return;
+
+      if (current.words.length < MAX_CONCURRENT_WORDS) {
+        const usedWords = new Set(current.words.map((w) => w.text));
+        const usedLanes = new Set(current.words.map((w) => w.lane));
+        idCounterRef.current += 1;
+        dispatch({
+          type: "spawn",
+          word: {
+            id: `word-${idCounterRef.current}`,
+            text: pickRandomWord(usedWords),
+            lane: pickLane(usedLanes),
+            spawnedAt: Date.now(),
+            fallDurationMs: fallDurationForScore(
+              current.score,
+              current.difficulty
+            ),
+          },
+        });
+      }
+
+      const nextInterval = spawnIntervalForScore(
+        current.score,
+        current.difficulty
+      );
+      timeoutId = setTimeout(spawnAndScheduleNext, nextInterval);
     };
 
-    spawnOne();
-    const interval = setInterval(spawnOne, spawnIntervalMs);
-    return () => clearInterval(interval);
+    spawnAndScheduleNext();
+    return () => clearTimeout(timeoutId);
   }, [state.phase]);
 
   useEffect(() => {
     if (state.phase === "playing") inputRef.current?.focus();
   }, [state.phase]);
 
+  const resetInput = () => {
+    isComposingRef.current = false;
+    setDisplayValue("");
+    dispatch({ type: "input", value: "", now: Date.now() });
+  };
+
   return (
     <div className="flex w-full flex-col items-center gap-4 px-4 py-8">
-      <h1 className="text-xl font-semibold">불구덩이 사자성어 타자</h1>
+      <h1
+        className="text-2xl font-black tracking-tight text-orange-500"
+        style={{ animation: "title-glow 2.4s ease-in-out infinite" }}
+      >
+        🔥 불구덩이 사자성어 타자 🔥
+      </h1>
 
       <div
-        className="relative w-full max-w-lg overflow-hidden rounded-xl border border-orange-950/40"
+        className="relative w-full max-w-lg overflow-hidden rounded-2xl border-2 border-orange-600/50 shadow-[0_0_35px_rgba(255,90,0,0.25)]"
         style={{
           height: 480,
           background:
-            "linear-gradient(180deg, #1a0f0a 0%, #1a0f0a 55%, #5c1a06 75%, #ff6a00 92%, #ffcf4d 100%)",
+            "linear-gradient(180deg, #140804 0%, #1a0a03 45%, #4a1204 72%, #d8480a 90%, #ffb020 100%)",
         }}
       >
+        <EmberParticles />
+
         <div className="absolute left-3 right-3 top-3 z-10 flex items-center justify-between">
-          <span className="rounded-full bg-black/40 px-3 py-1 text-sm font-semibold text-orange-50">
+          <span className="rounded-full border border-orange-500/40 bg-black/50 px-3 py-1 text-sm font-black text-orange-50">
             점수 {state.score}
           </span>
           <span
-            className="flex items-center gap-1 rounded-full bg-black/40 px-3 py-1"
+            className="flex items-center gap-1 rounded-full border border-orange-500/40 bg-black/50 px-3 py-1"
             aria-label={`남은 목숨 ${state.lives}개`}
           >
+            <span className="mr-0.5 text-[10px] font-bold text-orange-200/60">
+              목숨
+            </span>
             {Array.from({ length: INITIAL_LIVES }, (_, i) => (
-              <Flame
+              <span
                 key={i}
-                className={
+                className="text-base leading-none"
+                style={
                   i < state.lives
-                    ? "h-4 w-4 fill-orange-500 text-orange-500"
-                    : "h-4 w-4 text-orange-950"
+                    ? {
+                        animation: `flame-flicker ${1 + (i % 3) * 0.15}s ease-in-out infinite`,
+                        animationDelay: `${i * 0.12}s`,
+                      }
+                    : { opacity: 0.55, filter: "grayscale(1)" }
                 }
-              />
+              >
+                {i < state.lives ? LIFE_EMOJI : LOST_LIFE_EMOJI}
+              </span>
             ))}
           </span>
         </div>
+
+        {state.missFlashKey > 0 && (
+          <div
+            key={state.missFlashKey}
+            className="pointer-events-none absolute inset-0 z-20 bg-red-600"
+            style={{ animation: "miss-flash 0.45s ease-out forwards" }}
+          />
+        )}
 
         {state.words.map((w) => {
           const isTarget = w.id === state.targetId;
@@ -290,10 +352,10 @@ export function TypingGame() {
               data-testid="falling-word"
               onAnimationEnd={() => dispatch({ type: "land", wordId: w.id })}
               className={
-                "absolute whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-bold " +
+                "absolute whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-black tracking-tight " +
                 (isTarget
-                  ? "bg-orange-100 text-orange-950 ring-2 ring-orange-300"
-                  : "bg-[#fff4e2] text-[#3a1c00]")
+                  ? "border-2 border-amber-300 bg-[#241005] text-orange-50 shadow-[0_0_16px_rgba(255,170,40,0.85)]"
+                  : "border border-orange-900/50 bg-[#fff2df] text-[#2b1400] shadow-[0_2px_6px_rgba(0,0,0,0.35)]")
               }
               style={{
                 left: `${(w.lane / LANE_COUNT) * 80 + 4}%`,
@@ -338,6 +400,11 @@ export function TypingGame() {
           setDisplayValue(value);
           dispatch({ type: "input", value, now: Date.now() });
         }}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          resetInput();
+        }}
         onBlur={() => {
           if (stateRef.current.phase === "playing") {
             inputRef.current?.focus();
@@ -347,7 +414,7 @@ export function TypingGame() {
         autoFocus
         aria-label="낱말 입력"
         placeholder="떨어지는 사자성어를 입력하세요"
-        className="w-full max-w-lg rounded-md border border-orange-900/30 bg-[#1a0f0a] px-3 py-2 text-center text-lg text-orange-50 outline-none placeholder:text-orange-200/40 disabled:opacity-50"
+        className="w-full max-w-lg rounded-xl border-2 border-orange-600/50 bg-[#180a03] px-3 py-2 text-center text-lg font-bold text-orange-50 outline-none transition-shadow placeholder:text-orange-200/40 focus:border-orange-400 focus:shadow-[0_0_18px_rgba(255,140,0,0.55)] disabled:opacity-50"
       />
     </div>
   );
