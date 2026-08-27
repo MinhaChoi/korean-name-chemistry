@@ -1,5 +1,16 @@
 import Image from "next/image";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
 export default function Home() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
@@ -62,6 +73,32 @@ export default function Home() {
           >
             문서
           </a>
+        </div>
+        <div className="flex w-full flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button>기본 버튼</Button>
+            <Button variant="secondary">보조 버튼</Button>
+            <Button variant="outline">아웃라인</Button>
+            <Button variant="destructive">삭제</Button>
+            <Badge>기본</Badge>
+            <Badge variant="secondary">보조</Badge>
+            <Badge variant="outline">아웃라인</Badge>
+          </div>
+          <Card className="w-full max-w-sm">
+            <CardHeader>
+              <CardTitle>테마 미리보기</CardTitle>
+              <CardDescription>
+                shadcn 프리셋(bi3Wif7Vo) 적용 후 컴포넌트가 어떻게 보이는지
+                확인하는 카드입니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Badge variant="secondary">rhea 스타일 · blue 테마</Badge>
+            </CardContent>
+            <CardFooter>
+              <Button size="sm">확인</Button>
+            </CardFooter>
+          </Card>
         </div>
       </main>
     </div>
