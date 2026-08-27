@@ -340,7 +340,7 @@ export function TypingGame() {
         className="text-2xl font-black tracking-tight text-orange-500"
         style={{ animation: "title-glow 2.4s ease-in-out infinite" }}
       >
-        🔥 불구덩이 사자성어 타자 🔥
+        🔥 불타는 사자성어 🔥
       </h1>
 
       <div
@@ -465,6 +465,7 @@ export function TypingGame() {
           <RoundResultPanel
             outcome={state.outcome}
             score={state.score}
+            clearedCount={wordsClearedFor(state.score)}
             highScore={state.highScore}
             isNewHighScore={state.isNewHighScore}
             onRestart={() => dispatch({ type: "restart" })}

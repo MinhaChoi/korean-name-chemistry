@@ -1,14 +1,12 @@
 import { Flame, Trophy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { ROUND_DURATION_MS } from "@/components/typing-game/difficulty";
 import type { RoundOutcome } from "@/components/typing-game/types";
-
-const ROUND_SECONDS = Math.round(ROUND_DURATION_MS / 1000);
 
 type RoundResultPanelProps = {
   outcome: RoundOutcome;
   score: number;
+  clearedCount: number;
   highScore: number;
   isNewHighScore: boolean;
   onRestart: () => void;
@@ -19,16 +17,23 @@ const TITLES: Record<RoundOutcome, string> = {
   burned: "까맣게 타버렸다",
 };
 
-function describe(outcome: RoundOutcome, isNewHighScore: boolean): string {
-  if (isNewHighScore) return "역대 최고 기록 경신! 🔥";
+function describe(
+  outcome: RoundOutcome,
+  clearedCount: number,
+  isNewHighScore: boolean
+): string {
+  const record = isNewHighScore ? " 역대 최고 기록 경신! 🔥" : "";
   return outcome === "survived"
-    ? `${ROUND_SECONDS}초를 끝까지 버텨냈다.`
-    : "다시 불씨를 지펴 보자.";
+    ? `${clearedCount}개의 사자성어를 습득했다.${record}`
+    : isNewHighScore
+      ? "역대 최고 기록 경신! 🔥"
+      : "다시 불씨를 지펴 보자.";
 }
 
 export function RoundResultPanel({
   outcome,
   score,
+  clearedCount,
   highScore,
   isNewHighScore,
   onRestart,
@@ -63,7 +68,7 @@ export function RoundResultPanel({
           {TITLES[outcome]}
         </h2>
         <p className="mt-1 text-sm text-orange-200/70">
-          {describe(outcome, isNewHighScore)}
+          {describe(outcome, clearedCount, isNewHighScore)}
         </p>
 
         <div className="mt-5 flex flex-col gap-2 rounded-xl bg-black/30 p-3">

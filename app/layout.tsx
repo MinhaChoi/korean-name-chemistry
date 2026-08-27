@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "불구덩이 사자성어 타자",
+  title: "불타는 사자성어",
   description: "떨어지는 사자성어를 입력해 순발력을 겨루는 타자 게임",
 };
 

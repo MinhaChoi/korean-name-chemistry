@@ -65,7 +65,42 @@ test("제한 시간을 버티면 승리 화면이 뜬다", async ({ page }) => {
   });
 
   await expect(page.getByText("불구덩이에서 살아남았다")).toBeVisible();
-  await expect(page.getByText(/\d+초를 끝까지 버텨냈다\./)).toBeVisible();
+  await expect(
+    page.getByText(/\d+개의 사자성어를 습득했다\./)
+  ).toBeVisible();
+});
+
+test("승리 화면에 실제로 맞힌 사자성어 개수가 표시된다", async ({ page }) => {
+  await page.addInitScript(() => {
+    const realNow = Date.now.bind(Date);
+    let offset = 0;
+    Object.defineProperty(window, "__advanceClock", {
+      value: (ms: number) => {
+        offset += ms;
+      },
+    });
+    Date.now = () => realNow() + offset;
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "모닥불" }).click();
+
+  // 두 개를 맞힌 뒤 시간을 소진시킨다.
+  for (let i = 0; i < 2; i++) {
+    const word = page.getByTestId("falling-word").first();
+    await expect(word).toBeVisible();
+    const text = await word.textContent();
+    await page.getByLabel("낱말 입력").pressSequentially(text!);
+  }
+  await expect(page.getByText("점수 200")).toBeVisible();
+
+  await page.evaluate(() => {
+    (
+      window as unknown as { __advanceClock: (ms: number) => void }
+    ).__advanceClock(31_000);
+  });
+
+  await expect(page.getByText("2개의 사자성어를 습득했다.")).toBeVisible();
 });
 
 test("남은 시간이 화면에 표시된다", async ({ page }) => {
