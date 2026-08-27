@@ -128,3 +128,12 @@
     @apply font-sans;
   }
 }
+
+@keyframes fall-down {
+  from {
+    top: -12%;
+  }
+  to {
+    top: 100%;
+  }
+}
